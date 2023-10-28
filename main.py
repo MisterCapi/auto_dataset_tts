@@ -61,10 +61,19 @@ def create_segments_for_files(files_to_segment: List[str]):
 
         # 2. Align whisper output
         model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
-        result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
+        result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=True)
 
         # Save all segments as
-        segments = [[segment['start'], segment['end']] for segment in result["segments"]]
+        for segment in result["segments"]:
+            char_end = False
+            for char_data in reversed(segment['chars']):
+                char_end = char_data.get('end', False)
+                if char_end and char_end < segment['end']:
+                    char_end = char_data.get('end')
+                    break
+            segment['char_end'] = char_end if char_end else segment['end']
+
+        segments = [[segment['start'], segment['char_end']] for segment in result["segments"]]
         target_sampling_rate = 22050
 
         segment_filenames = cut_and_save_audio(audio_file, segments, target_sampling_rate)
