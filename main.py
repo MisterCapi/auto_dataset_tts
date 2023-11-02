@@ -103,7 +103,7 @@ def cut_and_save_audio(input_audio_path, segments, target_sampling_rate=22050):
         if good_audio:
             outputs.append(Segment(text=segment['text'],
                                    filepath=output_path,
-                                   duration=librosa.get_duration(audio, original_sampling_rate)))
+                                   duration=librosa.get_duration(y=audio, sr=original_sampling_rate)))
         else:
             try:
                 os.remove(output_path)
