@@ -1,6 +1,6 @@
 import glob
 import os
-import shutil
+from dataclasses import dataclass
 from datetime import datetime
 from typing import List
 
@@ -22,6 +22,13 @@ model = whisperx.load_model("large-v2", device, compute_type=compute_type, langu
 model_a, metadata = whisperx.load_align_model(language_code=language, device=device)
 
 run_name = datetime.now().strftime("%Y_%m_%d_%H_%M") + f"_{randomname.get_name()}"
+
+
+@dataclass
+class Segment:
+    text: str
+    filepath: str
+    duration: float
 
 
 def cut_sample_to_speech_only(audio_path):
@@ -82,22 +89,21 @@ def cut_and_save_audio(input_audio_path, segments, target_sampling_rate=22050):
     # Load the input audio
     audio, original_sampling_rate = librosa.load(input_audio_path, sr=target_sampling_rate)
 
-    # Convert segments from seconds to samples
-    segment_samples = [(int(start * original_sampling_rate), int(end * original_sampling_rate)) for start, end in
-                       segments]
-
     # Cut and save audio segments
     outputs = []
     output_prefix = os.path.splitext(os.path.basename(input_audio_path))[0]
-    for idx, (start_sample, end_sample) in tqdm(enumerate(segment_samples), desc=input_audio_path,
-                                                total=len(segments), leave=False):
+    for idx, segment in tqdm(enumerate(segments), desc=input_audio_path, total=len(segments), leave=False):
+        start_sample = segment['start'] * original_sampling_rate
+        end_sample = segment['end'] * original_sampling_rate
         audio_segment = audio[start_sample:end_sample]
         output_path = os.path.join(output_dir_name, f"{output_prefix}_{idx + 1}.wav")
         sf.write(output_path, audio_segment, target_sampling_rate)
         # We use whisper again on each sample to get rid of non-speech sounds
         good_audio = cut_sample_to_speech_only(output_path)
         if good_audio:
-            outputs.append(output_path)
+            outputs.append(Segment(text=segment['text'],
+                                   filepath=output_path,
+                                   duration=librosa.get_duration(audio, original_sampling_rate)))
         else:
             try:
                 os.remove(output_path)
@@ -121,28 +127,29 @@ def create_segments_for_files(files_to_segment: List[str]):
         # Align the whisper output
         result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=True)
 
-        segments = [[segment['start'], segment['end']] for segment in result["segments"]]
+        # segments = [[segment['start'], segment['end']] for segment in result["segments"]]
         target_sampling_rate = 22050
 
-        segment_filenames = cut_and_save_audio(audio_file, segments, target_sampling_rate)
+        segment_objects = cut_and_save_audio(audio_file, result["segments"], target_sampling_rate)
 
-        segment_filenames = [os.path.join(path.split(os.sep)[-2:]) for path in segment_filenames]
-        segment_filenames = [path.replace('\\', '/') for path in segment_filenames]
+        for segment in segment_objects:
+            segment.filepath = os.path.join(*segment.filepath.split(os.sep)[-2:])
+            segment.filepath = segment.filepath.replace('\\', '/')
 
-        np.random.shuffle(segment_filenames)
+        segment_objects = sorted(segment_objects, key=lambda x: x.duration, reverse=True)
 
         split_id = int(0.95 * len(result["segments"]))
-        train_segments = result["segments"][:split_id]
-        validation_segments = result["segments"][split_id:]
+        train_segments = segment_objects[:split_id]
+        validation_segments = segment_objects[split_id:]
 
         output_dir_name = os.path.join('output_audio_segments', run_name)
         with open(os.path.join(output_dir_name, 'train.txt'), 'a', encoding='utf-8') as f:
             for segment in train_segments:
-                f.write(f"{segment['filename']}| {segment['text'].strip()}\n")
+                f.write(f"{segment.filepath}| {segment.text.strip()}\n")
 
         with open(os.path.join(output_dir_name, 'validation.txt'), 'a', encoding='utf-8') as f:
             for segment in validation_segments:
-                f.write(f"{segment['filename']}| {segment['text'].strip()}\n")
+                f.write(f"{segment.filepath}| {segment.text.strip()}\n")
 
 
 if __name__ == '__main__':
