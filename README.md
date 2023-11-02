@@ -72,3 +72,5 @@ Before using the scripts in this repository, ensure that you have the following 
 - You can adjust the parameters in the scripts (such as `batch_size`, `compute_type`, and `language`) to customize the behavior of the WhisperX model according to your requirements.
 
 - For more information about the WhisperX ASR model, refer to the official documentation or repository of the model.
+
+- This readme was generated with GPT model, any fixes are more than welcome 😃
