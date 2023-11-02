@@ -93,8 +93,8 @@ def cut_and_save_audio(input_audio_path, segments, target_sampling_rate=22050):
     outputs = []
     output_prefix = os.path.splitext(os.path.basename(input_audio_path))[0]
     for idx, segment in tqdm(enumerate(segments), desc=input_audio_path, total=len(segments), leave=False):
-        start_sample = segment['start'] * original_sampling_rate
-        end_sample = segment['end'] * original_sampling_rate
+        start_sample = int(segment['start'] * original_sampling_rate)
+        end_sample = int(segment['end'] * original_sampling_rate)
         audio_segment = audio[start_sample:end_sample]
         output_path = os.path.join(output_dir_name, f"{output_prefix}_{idx + 1}.wav")
         sf.write(output_path, audio_segment, target_sampling_rate)
