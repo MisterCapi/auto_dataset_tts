@@ -31,7 +31,7 @@ class Segment:
     duration: float
 
 
-def cut_sample_to_speech_only(audio_path):
+def cut_sample_to_speech_only(audio_path) -> str:
     audio_sample = whisperx.load_audio(audio_path)
     result_sample = model.transcribe(audio_sample, batch_size=batch_size, chunk_size=30)
     result_sample = whisperx.align(result_sample["segments"], model_a, metadata, audio_sample, device)
@@ -69,7 +69,7 @@ def cut_sample_to_speech_only(audio_path):
     # ======= END OPTIONAL CODE =======
 
     sf.write(audio_path, audio[:int(end * sr)], int(sr))
-    return True
+    return " ".join([seg['text'].strip() for seg in result_sample['segments']])
 
 
 def cut_and_save_audio(input_audio_path, segments, target_sampling_rate=22050):
@@ -99,9 +99,9 @@ def cut_and_save_audio(input_audio_path, segments, target_sampling_rate=22050):
         output_path = os.path.join(output_dir_name, f"{output_prefix}_{idx + 1}.wav")
         sf.write(output_path, audio_segment, target_sampling_rate)
         # We use whisper again on each sample to get rid of non-speech sounds
-        good_audio = cut_sample_to_speech_only(output_path)
-        if good_audio:
-            outputs.append(Segment(text=segment['text'],
+        segment_text = cut_sample_to_speech_only(output_path)
+        if segment_text:
+            outputs.append(Segment(text=segment_text,
                                    filepath=output_path,
                                    duration=librosa.get_duration(y=audio, sr=original_sampling_rate)))
         else:
