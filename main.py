@@ -21,7 +21,29 @@ language = "pl"
 model = whisperx.load_model("large-v2", device, compute_type=compute_type, language=language)
 model_a, metadata = whisperx.load_align_model(language_code=language, device=device)
 
-run_name = datetime.now().strftime("%Y_%m_%d_%H_%M") + f"_{randomname.get_name()}"
+
+continue_run = ""
+while continue_run.lower() not in ('yes', 'no'):
+    continue_run = input('Do you want to continue previous run? [yes/no]: ')
+
+continue_run = continue_run.lower() == 'yes'
+
+if continue_run:
+    run_names = os.listdir('output_audio_segments')
+    run_name = ""
+    while run_name not in run_names:
+        run_name = input("What run do you wish to continue?\nEnter name [ex. 2023_10_29_00_10_callous-class]: ")
+else:
+    run_name = datetime.now().strftime("%Y_%m_%d_%H_%M") + f"_{randomname.get_name()}"
+    print('Starting a new run.')
+
+# Load files that were done previously if continue run
+files_done_path = os.path.join('output_audio_segments', run_name, 'files_done.txt')
+files_done = []
+if continue_run:
+    if os.path.exists(files_done_path):
+        with open(files_done_path, 'r', encoding='utf-8') as f:
+            files_done = [x.strip() for x in f.readlines()]
 
 
 @dataclass
@@ -40,7 +62,7 @@ def cut_sample_to_speech_only(audio_path) -> str:
         end = result_sample['segments'][-1]['end']
     except IndexError:
         print(f"Skipping {audio_path}")
-        return False
+        return ""
 
     # Load audio with Librosa
     audio, sr = librosa.load(audio_path)
@@ -121,6 +143,9 @@ def create_segments_for_files(files_to_segment: List[str]):
 
     for audio_file in tqdm(sorted(files_to_segment, key=lambda x: os.path.getsize(x), reverse=True),
                            desc="Transcribing and segmenting files"):
+        if audio_file in files_done:
+            continue
+
         audio = whisperx.load_audio(audio_file)
         result = model.transcribe(audio, batch_size=batch_size, chunk_size=30)
 
@@ -150,6 +175,13 @@ def create_segments_for_files(files_to_segment: List[str]):
         with open(os.path.join(output_dir_name, 'validation.txt'), 'a', encoding='utf-8') as f:
             for segment in validation_segments:
                 f.write(f"{segment.filepath}| {segment.text.strip()}\n")
+
+        with open(os.path.join(output_dir_name, 'validation.txt'), 'a', encoding='utf-8') as f:
+            for segment in validation_segments:
+                f.write(f"{segment.filepath}| {segment.text.strip()}\n")
+
+        with open(files_done_path, 'a', encoding='utf-8') as f:
+            f.write(f"{audio_file}\n")
 
 
 if __name__ == '__main__':
