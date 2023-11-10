@@ -176,10 +176,6 @@ def create_segments_for_files(files_to_segment: List[str]):
             for segment in validation_segments:
                 f.write(f"{segment.filepath}| {segment.text.strip()}\n")
 
-        with open(os.path.join(output_dir_name, 'validation.txt'), 'a', encoding='utf-8') as f:
-            for segment in validation_segments:
-                f.write(f"{segment.filepath}| {segment.text.strip()}\n")
-
         with open(files_done_path, 'a', encoding='utf-8') as f:
             f.write(f"{audio_file}\n")
 
