@@ -22,7 +22,7 @@ for folder in folders:
 
     # Iterate through the files and calculate total length
     for file in tqdm(files):
-        audio, _ = librosa.load(file, sr=22050, mono=True)
+        audio, _ = librosa.load(file)
         total_length += librosa.get_duration(y=audio)
 
 # Convert total length to hours

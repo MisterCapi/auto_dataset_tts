@@ -13,7 +13,7 @@ import whisperx
 from tqdm import tqdm
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-batch_size = 4              # reduce if low on GPU mem
+batch_size = 3              # reduce if low on GPU mem
 compute_type = "float16"    # change to "int8" if low on GPU mem (may reduce accuracy)
 language = "pl"
 
@@ -56,10 +56,19 @@ class Segment:
 def cut_sample_to_speech_only(audio_path) -> str:
     audio_sample = whisperx.load_audio(audio_path)
     result_sample = model.transcribe(audio_sample, batch_size=batch_size, chunk_size=30)
-    result_sample = whisperx.align(result_sample["segments"], model_a, metadata, audio_sample, device)
+    result_sample = whisperx.align(result_sample["segments"], model_a, metadata, audio_sample, device, return_char_alignments=True)
 
     try:
-        end = result_sample['segments'][-1]['end']
+        segment = result_sample['segments'][-1]
+        chars = [char for char in segment['chars'] if char.get('end')]
+        long_char_threshold = 0.5
+        end = 0
+        for char in reversed(chars):
+            if char.get('char').strip() and (char.get('end') - char.get('start')) < long_char_threshold:
+                end = char['end']
+                break
+        if not end:
+            end = chars[-1]['end']
     except IndexError:
         print(f"Skipping {audio_path}")
         return ""

@@ -32,8 +32,8 @@ with open('yt_links.txt', 'r', encoding='utf-8') as f:
     all_links = [link for link in all_links if not link.startswith('#')]
 
 os.chdir(yt_download_dir)
-for link in all_links:
-    os.system(f"yt-dlp -f ba --audio-format wav --extract-audio {link}")
+for link in tqdm(all_links, desc='Downloading from youtube'):
+    os.system(f"yt-dlp --quiet -f ba --audio-format wav --extract-audio {link}")
 
 # Convert to mono and 22050 HZ
 for file in tqdm(glob.glob('*.wav'), desc='Resampling all files'):
